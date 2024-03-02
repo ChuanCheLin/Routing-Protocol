@@ -30,15 +30,16 @@ int main(int argc, char** argv) {
     // Temporary storage to hold edge information before resizing the graph
     std::vector<std::tuple<int, int, int>> edges;
 
-    // First, determine the maximum node ID
+    // determine the maximum node ID
     while (topoFile >> node1 >> node2 >> cost) {
         edges.push_back(std::make_tuple(node1, node2, cost));
         maxNodes = std::max(maxNodes, std::max(node1, node2));
     }
 
-    // Now that we know the maximum node ID, we can resize the graph and populate it
-    Graph graph(maxNodes + 1); // +1 because nodes are 1-indexed
+    // we know the maximum node ID, we can resize the graph and populate it
+    Graph graph(maxNodes + 1); // +1 because nodes are 1-indexed instead of 0-indexed
 
+    // construct the graph
     for (const auto& edge : edges) {
         node1 = std::get<0>(edge);
         node2 = std::get<1>(edge);
@@ -64,7 +65,6 @@ int main(int argc, char** argv) {
 
     // the Distance Vector Algorithm
 
-    // Initialization
     const int INF = 1e9; // Representing infinity
     std::vector<std::vector<int>> dist(maxNodes+1, std::vector<int>(maxNodes+1, INF));
 
@@ -78,6 +78,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    // debug after we Initialize distance tables
     if (debug == true){
         std::cout << "Initial distance table:" << std::endl;
         for(int i = 1; i <= maxNodes; ++i) {
@@ -90,8 +91,6 @@ int main(int argc, char** argv) {
             std::cout << std::endl;
         }
     }
-
-    // Implement the DV update logic here based on the described algorithm
 
     // Iteratively Update Distances
     bool updated;
@@ -111,7 +110,7 @@ int main(int argc, char** argv) {
         }
     } while (updated); // Continue until no updates are made
 
-    // After the do-while loop
+    // debug the distance table after iteratively update distances until no changes
     if (debug == true){
         std::cout << "Final distance table:" << std::endl;
         for(int i = 1; i <= maxNodes; ++i) {
