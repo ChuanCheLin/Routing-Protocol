@@ -124,5 +124,47 @@ int main(int argc, char** argv) {
         }
     }
 
+    // handle message forwarding
+
+    std::ifstream messageFile(argv[2]);
+    if (!messageFile.is_open()) {
+        std::cerr << "Could not open message file\n";
+        return -1;
+    }
+
+    int src, dest;
+    std::string messageContent;
+    while (messageFile >> src >> dest) {
+        std::getline(messageFile, messageContent); // To read the message content
+        if (dist[src][dest] == INF) {
+            std::cout << "From " << src << " to " << dest << " is unreachable." << std::endl;
+        } else {
+            std::cout << "From " << src << " to " << dest << " costs " << dist[src][dest] << ", message: " << messageContent << std::endl;
+        }
+    }
+
+    messageFile.close();
+
+    // // handle the topology changes
+    // std::ifstream changesFile(argv[3]);
+    // if (!changesFile.is_open()) {
+    //     std::cerr << "Could not open changes file\n";
+    //     return -1;
+    // }
+
+    // int node1, node2, newCost;
+    // while (changesFile >> node1 >> node2 >> newCost) {
+    //     // Apply the change to the graph
+    //     // Note: You'll need to adjust your graph structure to allow for easy updates
+    //     applyChangeToGraph(graph, node1, node2, newCost, maxNodes);
+
+    //     // Recompute the Distance Vectors
+    //     recomputeDistanceVectors(graph, dist, maxNodes);
+
+    //     // Optionally, resimulate message forwarding if necessary
+    // }
+
+    // changesFile.close();
+
     return 0;
 }
