@@ -136,18 +136,23 @@ void recomputeDistanceVectors(const Graph& graph, std::vector<std::vector<int>>&
     bool updated;
     do {
         updated = false;
+
         for (int i = 1; i <= maxNodes; ++i) {
-            for (const auto &edge : graph[i]) {
+            for (const auto& edge : graph[i]) {
                 int neighbor = edge.first;
                 for (int j = 1; j <= maxNodes; ++j) {
-                    if (dist[i][j] > dist[i][neighbor] + dist[neighbor][j]) {
+                    // Check for a better path or a tie with a preferable next hop
+                    if (dist[i][j] > dist[i][neighbor] + dist[neighbor][j] ||
+                        (dist[i][j] == dist[i][neighbor] + dist[neighbor][j] && nextHop[i][j] > nextHop[i][neighbor])) {
                         dist[i][j] = dist[i][neighbor] + dist[neighbor][j];
-                        nextHop[i][j] = nextHop[i][neighbor]; // Update next hop
+                        // Update next hop, considering direct connections and ensuring the next hop isn't set to -1 incorrectly
+                        nextHop[i][j] = (dist[i][neighbor] == INF) ? -1 : nextHop[i][neighbor];
                         updated = true;
                     }
                 }
             }
         }
+
     } while (updated);
 }
 
