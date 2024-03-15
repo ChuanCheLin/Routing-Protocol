@@ -13,6 +13,23 @@ const int INF = 1e9; // Representing infinity
 // Using vector of vectors to represent an adjacency list, where each pair is (neighbor, cost)
 typedef std::vector<std::vector<std::pair<int, int>>> Graph;
 
+void outputForwardingTables(const std::vector<std::vector<int>>& dist, const std::vector<std::vector<int>>& nextHop, std::ofstream& outputFile, int maxNodes, const int INF) {
+    for (int node = 1; node <= maxNodes; ++node) {
+        for (int dest = 1; dest <= maxNodes; ++dest) {
+            if (node == dest) {
+                // Output the node itself with a next hop of itself and a cost of 0, ensuring it's in order
+                outputFile << dest << " " << dest << " " << 0 << std::endl;
+            } else if (dist[node][dest] != INF) {
+                int nexthop = nextHop[node][dest]; // Use the actual next hop for the destination
+                outputFile << dest << " " << nexthop << " " << dist[node][dest] << std::endl;
+            }
+        }
+        outputFile << std::endl; // Separate tables for readability
+    }
+}
+
+
+
 void applyChangeToGraph(Graph& graph, int node1, int node2, int newCost, int maxNodes) {
     bool edgeFound = false;
     // Update the cost if the edge exists
@@ -47,7 +64,7 @@ void applyChangeToGraph(Graph& graph, int node1, int node2, int newCost, int max
     }
 }
 
-void recomputeDistanceVectors(const Graph& graph, std::vector<std::vector<int>>& dist, int maxNodes) {
+void recomputeDistanceVectors(const Graph& graph, std::vector<std::vector<int>>& dist, std::vector<std::vector<int>>& nextHop, int maxNodes) {
     // Reset the distance vectors
     for(int i = 1; i <= maxNodes; ++i) {
         std::fill(dist[i].begin(), dist[i].end(), INF);
@@ -58,24 +75,35 @@ void recomputeDistanceVectors(const Graph& graph, std::vector<std::vector<int>>&
             dist[i][neighbor] = cost; // Direct neighbor cost
         }
     }
+    // Reset nextHop table
+    for (int i = 1; i <= maxNodes; ++i) {
+        for (int j = 1; j <= maxNodes; ++j) {
+            if (i == j)
+                nextHop[i][j] = i; // Next hop to itself is itself
+            else if (dist[i][j] != INF)
+                nextHop[i][j] = j; // Directly connected nodes
+            else
+                nextHop[i][j] = -1; // Undefined next hop
+        }
+    }
 
     // Apply the DV update logic
     bool updated;
     do {
         updated = false;
-        for (int i = 1; i <= maxNodes; ++i) { // For each node
-            for (const auto &edge : graph[i]) { // For each neighbor
+        for (int i = 1; i <= maxNodes; ++i) {
+            for (const auto &edge : graph[i]) {
                 int neighbor = edge.first;
-                int edgeCost = edge.second;
-                for (int j = 1; j <= maxNodes; ++j) { // For each possible destination
+                for (int j = 1; j <= maxNodes; ++j) {
                     if (dist[i][j] > dist[i][neighbor] + dist[neighbor][j]) {
                         dist[i][j] = dist[i][neighbor] + dist[neighbor][j];
-                        updated = true; // Mark that we made an update
+                        nextHop[i][j] = nextHop[i][neighbor]; // Update next hop
+                        updated = true;
                     }
                 }
             }
         }
-    } while (updated); // Continue until no updates are made
+    } while (updated);
 }
 
 void printDistanceTable(const std::vector<std::vector<int>>& dist, int maxNodes, const int INF) {
@@ -94,6 +122,12 @@ void printDistanceTable(const std::vector<std::vector<int>>& dist, int maxNodes,
 int main(int argc, char** argv) {
     if (argc != 4) {
         std::cout << "Usage: ./distvec topofile messagefile changesfile\n";
+        return -1;
+    }
+
+    std::ofstream outputFile("output.txt");
+    if (!outputFile.is_open()) {
+        std::cerr << "Could not open output.txt for writing\n";
         return -1;
     }
 
@@ -145,48 +179,14 @@ int main(int argc, char** argv) {
     // the Distance Vector Algorithm
 
     std::vector<std::vector<int>> dist(maxNodes+1, std::vector<int>(maxNodes+1, INF));
+    std::vector<std::vector<int>> nextHop(maxNodes+1, std::vector<int>(maxNodes+1, -1));
 
-    // Initialize distance tables
-    for(int i = 1; i <= maxNodes; ++i) {
-        dist[i][i] = 0; // Distance to itself is 0
-        for(auto& edge : graph[i]) {
-            int neighbor = edge.first;
-            int cost = edge.second;
-            dist[i][neighbor] = cost; // Distance to direct neighbor
-        }
-    }
+    recomputeDistanceVectors(graph, dist, nextHop, maxNodes);
 
-    // debug after we Initialize distance tables
-    if (debug == true){
-        std::cout << "Initial distance table:" << std::endl;
-        for(int i = 1; i <= maxNodes; ++i) {
-            for(int j = 1; j <= maxNodes; ++j) {
-                if(dist[i][j] == INF)
-                    std::cout << "INF ";
-                else
-                    std::cout << dist[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
 
-    // Iteratively Update Distances
-    bool updated;
-    do {
-        updated = false;
-        for (int i = 1; i <= maxNodes; ++i) { // For each node
-            for (auto &edge : graph[i]) { // For each neighbor
-                int neighbor = edge.first;
-                int edgeCost = edge.second;
-                for (int j = 1; j <= maxNodes; ++j) { // For each possible destination
-                    if (dist[i][j] > dist[i][neighbor] + dist[neighbor][j]) {
-                        dist[i][j] = dist[i][neighbor] + dist[neighbor][j];
-                        updated = true; // Mark that we made an update
-                    }
-                }
-            }
-        }
-    } while (updated); // Continue until no updates are made
+    // output the forwarding table after computing the distance table
+    outputForwardingTables(dist, nextHop, outputFile, maxNodes, INF);
+
 
     // debug the distance table after iteratively update distances until no changes
     if (debug) {
@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
         applyChangeToGraph(graph, node1, node2, newCost, maxNodes);
         std::cout << "Change applied. Recomputing distance vectors..." << std::endl;
         // Recompute the Distance Vectors
-        recomputeDistanceVectors(graph, dist, maxNodes);
+        recomputeDistanceVectors(graph, dist, nextHop, maxNodes);
         std::cout << "Distance vectors recomputed." << std::endl;
         if (debug) {
             printDistanceTable(dist, maxNodes, INF);
