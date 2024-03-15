@@ -13,6 +13,53 @@ const int INF = 1e9; // Representing infinity
 // Using vector of vectors to represent an adjacency list, where each pair is (neighbor, cost)
 typedef std::vector<std::vector<std::pair<int, int>>> Graph;
 
+
+void sendMessage(std::ofstream& outputFile, int src, int dest, const std::vector<std::vector<int>>& dist, const std::vector<std::vector<int>>& nextHop, const std::string& message, const int INF) {
+    if (dist[src][dest] == INF) {
+        // Destination is not reachable
+        outputFile << "from " << src << " to " << dest << " cost infinite hops unreachable message " << message << std::endl;
+    } else {
+        // Trace the path using the nextHop table
+        std::vector<int> path;
+        int currentNode = src;
+        while (currentNode != dest) {
+            path.push_back(currentNode);
+            currentNode = nextHop[currentNode][dest];
+            if (currentNode == -1) { // Break loop if path is incomplete or broken
+                break;
+            }
+        }
+
+        // Output the message routing information
+        outputFile << "from " << src << " to " << dest << " cost " << dist[src][dest] << " hops ";
+        for (size_t i = 0; i < path.size(); ++i) {
+            if (i > 0) outputFile << " ";
+            outputFile << path[i];
+        }
+        outputFile << " message " << message << std::endl;
+    }
+}
+
+void handleMessageForwarding(const std::string& messageFilePath, const std::vector<std::vector<int>>& dist, const std::vector<std::vector<int>>& nextHop, std::ofstream& outputFile, const int INF) {
+    std::ifstream messageFile(messageFilePath);
+    if (!messageFile.is_open()) {
+        std::cerr << "Could not open message file\n";
+        return;
+    }
+
+    int src, dest;
+    std::string messageContent;
+    while (messageFile >> src >> dest) {
+        std::getline(messageFile, messageContent); // To correctly handle the message content after reading src and dest
+        if (messageContent.size() > 0 && messageContent[0] == ' ') { // Remove leading space from message content
+            messageContent.erase(0, 1);
+        }
+        sendMessage(outputFile, src, dest, dist, nextHop, messageContent, INF);
+    }
+
+    messageFile.close();
+}
+
 void outputForwardingTables(const std::vector<std::vector<int>>& dist, const std::vector<std::vector<int>>& nextHop, std::ofstream& outputFile, int maxNodes, const int INF) {
     for (int node = 1; node <= maxNodes; ++node) {
         for (int dest = 1; dest <= maxNodes; ++dest) {
@@ -24,11 +71,9 @@ void outputForwardingTables(const std::vector<std::vector<int>>& dist, const std
                 outputFile << dest << " " << nexthop << " " << dist[node][dest] << std::endl;
             }
         }
-        outputFile << std::endl; // Separate tables for readability
+        // outputFile << std::endl; // Separate tables for readability when debugging
     }
 }
-
-
 
 void applyChangeToGraph(Graph& graph, int node1, int node2, int newCost, int maxNodes) {
     bool edgeFound = false;
@@ -176,43 +221,20 @@ int main(int argc, char** argv) {
         }
     }
 
-    // the Distance Vector Algorithm
 
     std::vector<std::vector<int>> dist(maxNodes+1, std::vector<int>(maxNodes+1, INF));
     std::vector<std::vector<int>> nextHop(maxNodes+1, std::vector<int>(maxNodes+1, -1));
-
+    // do the Distance Vector computing for the first time, before any changes applied
     recomputeDistanceVectors(graph, dist, nextHop, maxNodes);
-
-
     // output the forwarding table after computing the distance table
     outputForwardingTables(dist, nextHop, outputFile, maxNodes, INF);
-
+    // handle message forwarding
+    handleMessageForwarding(argv[2], dist, nextHop, outputFile, INF);
 
     // debug the distance table after iteratively update distances until no changes
     if (debug) {
         printDistanceTable(dist, maxNodes, INF);
     }
-
-    // handle message forwarding
-
-    std::ifstream messageFile(argv[2]);
-    if (!messageFile.is_open()) {
-        std::cerr << "Could not open message file\n";
-        return -1;
-    }
-
-    int src, dest;
-    std::string messageContent;
-    while (messageFile >> src >> dest) {
-        std::getline(messageFile, messageContent); // To read the message content
-        if (dist[src][dest] == INF) {
-            std::cout << "From " << src << " to " << dest << " is unreachable." << std::endl;
-        } else {
-            std::cout << "From " << src << " to " << dest << " costs " << dist[src][dest] << ", message: " << messageContent << std::endl;
-        }
-    }
-
-    messageFile.close();
 
     // handle the topology changes
     std::ifstream changesFile(argv[3]);
@@ -231,6 +253,10 @@ int main(int argc, char** argv) {
         std::cout << "Change applied. Recomputing distance vectors..." << std::endl;
         // Recompute the Distance Vectors
         recomputeDistanceVectors(graph, dist, nextHop, maxNodes);
+        // output the forwarding table after computing the distance table
+        outputForwardingTables(dist, nextHop, outputFile, maxNodes, INF);
+        // handle message forwarding
+        handleMessageForwarding(argv[2], dist, nextHop, outputFile, INF);
         std::cout << "Distance vectors recomputed." << std::endl;
         if (debug) {
             printDistanceTable(dist, maxNodes, INF);
